@@ -1,0 +1,83 @@
+version: '3.4'
+
+services:
+  http-challenge:
+    image: sokardys/http-challenge:1.0
+    networks:
+      - web
+    environment:
+      - NODE_ENV=production
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+      labels:
+        - traefik.enable=true
+        - traefik.port=3000
+        - traefik.docker.network=web
+        - traefik.frontend.rule=HostRegexp:{domain:(.*)};PathPrefixStrip:/.well-known
+        - traefik.backend.loadbalancer.swarm=true
+        - traefik.backend.loadbalancer.stickiness=false
+
+  traefik:
+    image: traefik:${TRAEFIK_VERSION}
+    networks:
+      - web
+    command:
+      - --api
+
+      - --defaultentrypoints=http,https
+      - --entrypoints=Name:http Address::80 Redirect.EntryPoint:https
+      - --entrypoints=Name:https Address::443 Compress:true TLS
+      # Uncomment next line for use cert files for some domain
+      #- --entrypoints=Name:https Address::443 Compress:true TLS:/certs/domain.com.cert,/certs/domain.com.key;/certs/domain2.com.cert,/certs/domain2.com.key CA.Optional:false
+
+      - --acme
+      - --acme.storage=/acme.json
+      - --acme.acmeLogging=true
+      - --acme.entryPoint=https
+      - --acme.onHostRule=true
+      - --acme.onDemand=true
+      - --acme.httpChallenge.entryPoint=http
+      - --acme.email=${TRAEFIK_ACME_EMAIL}
+
+      - --docker
+      - --docker.swarmmode
+      - --docker.watch
+      - --docker.exposedbydefault=false
+    ports:
+      - target: 80
+        published: 80
+        mode: host  # Important to get the real IP of the client
+      - target: 443
+        published: 443
+        mode: host  # Important to get the real IP of the client
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./acme/acme.json:/acme.json
+      # Uncomment next line for use cert files for some domain
+      #- ./certs:/certs:ro
+    deploy:
+      mode: global
+      placement:
+        constraints:
+          - node.role == manager
+      update_config:
+        parallelism: 1
+        delay: 10s
+      restart_policy:
+        condition: on-failure
+      labels:
+        - traefik.enable=true
+        - traefik.port=8080
+        - traefik.docker.network=web
+        - traefik.frontend.redirect.entryPoint=https
+        - traefik.frontend.auth.basic=${TRAEFIK_BASIC_AUTH}
+        - traefik.frontend.rule=Host:${TRAEFIK_DOMAIN}
+        - traefik.backend.loadbalancer.swarm=true
+        - traefik.backend.loadbalancer.stickiness=false
+
+# docker network create --scope swarm --driver overlay web
+networks:
+  web:
+    external: true
