@@ -1,0 +1,57 @@
+version: '3.4'
+
+# docker network create --scope swarm --driver overlay web
+networks:
+  web:
+    external: true
+  monitoring:
+    external: true
+
+services:
+  adminer:
+    image: adminer:${ADMINER_VERSION}
+    networks:
+      - monitoring
+      - web
+    deploy:
+      replicas: 1
+      update_config:
+        parallelism: 1
+        failure_action: rollback
+        delay: 1m
+        order: start-first
+      restart_policy:
+        condition: on-failure
+      labels:
+        - traefik.enable=true
+        - traefik.port=8080
+        - traefik.frontend.auth.basic=${MONITOR_BASIC_AUTH}
+        - traefik.docker.network=web
+        - traefik.frontend.redirect.entryPoint=https
+        - traefik.frontend.rule=Host:${ADMINER_DOMAIN}
+        - traefik.backend.loadbalancer.swarm=true
+        - traefik.backend.loadbalancer.stickiness=false
+
+  mongoclient:
+    image: mongoclient/mongoclient:${MONGOCLIENT_VERSION}
+    networks:
+      - monitoring
+      - web
+    deploy:
+      replicas: 1
+      update_config:
+        parallelism: 1
+        failure_action: rollback
+        delay: 1m
+        order: start-first
+      restart_policy:
+        condition: on-failure
+      labels:
+        - traefik.enable=true
+        - traefik.port=3000
+        - traefik.frontend.auth.basic=${MONITOR_BASIC_AUTH}
+        - traefik.docker.network=web
+        - traefik.frontend.redirect.entryPoint=https
+        - traefik.frontend.rule=Host:${MONGOCLIENT_DOMAIN}
+        - traefik.backend.loadbalancer.swarm=true
+        - traefik.backend.loadbalancer.stickiness=false
