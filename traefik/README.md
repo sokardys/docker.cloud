@@ -36,14 +36,3 @@ directory.
 
 Change line 33 according to the names of the generated files. The .cert and .key
 files are separated by commas (**,**) and the various semicolon domains (**;**)
-
-## Compilation and Start up
-
-After each modification of the `.env` file, the `make` command must be executed to generate the `docker-compose.yaml` file.
-
-With the `docker-compose.yaml` generated, execute this command for start up de stack:
-
-```
-docker stack deploy -c docker-compose.yaml traefik
-```
-
