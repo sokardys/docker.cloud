@@ -4,5 +4,5 @@ docker-compose.yaml: docker-compose.template.yaml $(wildcard .env)
 clean:
 	rm docker-compose.yaml
 
-image:
-	docker-compose $(^:%=-f docker-compose.yaml) build
+image: docker-compose.yaml
+	docker-compose $(^:%=-f docker-compose.yaml) build $(filter-out $@,$(MAKECMDGOALS))
