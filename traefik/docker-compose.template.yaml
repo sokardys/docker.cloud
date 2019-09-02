@@ -27,7 +27,7 @@ services:
       - --api
 
       - --defaultentrypoints=http,https
-      - --entrypoints=Name:http Address::80 Redirect.EntryPoint:https
+      - --entrypoints=Name:http Address::80 Compress:true
       - --entrypoints=Name:https Address::443 Compress:true TLS
       # Uncomment next line for use cert files for some domain
       #- --entrypoints=Name:https Address::443 Compress:true TLS:/certs/domain.com.cert,/certs/domain.com.key;/certs/domain2.com.cert,/certs/domain2.com.key CA.Optional:false
@@ -71,7 +71,7 @@ services:
         - traefik.enable=true
         - traefik.port=8080
         - traefik.docker.network=web
-        - traefik.frontend.redirect.entryPoint=https
+        - traefik.frontend.redirect.entryPoint=${TRAEFIK_ENTRYPOINT}
         - traefik.frontend.auth.basic=${TRAEFIK_BASIC_AUTH}
         - traefik.frontend.rule=Host:${TRAEFIK_DOMAIN}
         - traefik.backend.loadbalancer.swarm=true
