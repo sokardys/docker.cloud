@@ -2,3 +2,4 @@
 docker-compose.yaml
 *.log
 rasa/db
+rasa/install.sh
