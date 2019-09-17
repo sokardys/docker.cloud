@@ -1,0 +1,117 @@
+version: '3.7'
+
+x-defaults: &defaults
+  image: sentry
+  environment:
+    - SENTRY_MEMCACHED_HOST=memcached
+    - SENTRY_REDIS_HOST=redis
+    - SENTRY_POSTGRES_HOST=postgres
+    - SENTRY_EMAIL_HOST=smtp
+    - SENTRY_SECRET_KEY=${SENTRY_SECRET}
+    - SENTRY_DB_NAME=${POSTGRES_DB}
+    - SENTRY_DB_USER=${POSTGRES_USER}
+    - SENTRY_DB_PASSWORD=${POSTGRES_PASSWORD}
+    - SENTRY_EMAIL_HOST=${AWS_SES_SMTP_SERVER}
+    - SENTRY_EMAIL_PORT=587
+    - SENTRY_EMAIL_PASSWORD=${AWS_SES_SMTP_PASSWORD}
+    - SENTRY_EMAIL_USER=${AWS_SES_SMTP_USERNAME}
+    - SENTRY_EMAIL_USE_TLS=true
+    - SENTRY_SERVER_EMAIL=${SENTRY_SERVER_EMAIL}
+
+  deploy:
+    replicas: 1
+    update_config:
+      parallelism: 1
+      failure_action: rollback
+      delay: 1m
+      order: start-first
+    restart_policy:
+      condition: on-failure
+  volumes:
+    - sentrydata:/var/lib/sentry/files
+
+services:
+  memcached:
+    image: memcached:1.5-alpine
+    networks:
+      - default
+    deploy:
+      restart_policy:
+        condition: on-failure
+
+  redis:
+    image: redis:3.2-alpine
+    networks:
+      - default
+    deploy:
+      restart_policy:
+        condition: on-failure
+
+  postgres:
+    image: postgres:9
+    environment:
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_DB=${POSTGRES_DB}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - default
+      - monitoring
+    deploy:
+      restart_policy:
+        condition: on-failure
+
+  server:
+    <<: *defaults
+    networks:
+      - default
+      - web
+    deploy:
+      labels:
+        - "traefik.enable=true"
+        - "traefik.docker.network=web"
+        - "traefik.backend.loadbalancer.swarm=true"
+        - "traefik.frontend.rule=Host:${SENTRY_DOMAIN}"
+        - "traefik.port=9000"
+  cron:
+    <<: *defaults
+    command: run cron
+    networks:
+      - default
+
+  worker:
+    <<: *defaults
+    command: run worker
+    networks:
+      - default
+
+  backup:
+    image: schickling/postgres-backup-s3
+    networks:
+      - default
+    environment:
+      - POSTGRES_HOST=postgres
+      - POSTGRES_DATABASE=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - S3_ACCESS_KEY_ID=${AWS_S3_KEY}
+      - S3_SECRET_ACCESS_KEY=${AWS_S3_SECRET}
+      - S3_BUCKET=${AWS_S3_BUCKET}
+      - S3_PREFIX=${AWS_S3_PREFIX}
+      - S3_REGION=${AWS_S3_REGION}
+      - SCHEDULE=${BACKUP_FREQUENCY}
+    deploy:
+      mode: global
+
+volumes:
+  pgdata:
+    external: true
+  sentrydata:
+    external: true
+
+networks:
+  web:
+    external: true
+  monitoring:
+    external: true
