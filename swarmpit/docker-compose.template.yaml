@@ -1,0 +1,89 @@
+version: '3.3'
+
+networks:
+  web:
+    external: true
+
+services:
+  app:
+    image: swarmpit/swarmpit:latest
+    environment:
+      - SWARMPIT_DB=http://db:5984
+      - SWARMPIT_INFLUXDB=http://influxdb:8086
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - default
+      - web
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 1024M
+        reservations:
+          cpus: '0.25'
+          memory: 512M
+      placement:
+        constraints:
+          - node.role == manager
+      labels:
+        - "traefik.enable=true"
+        - "traefik.docker.network=web"
+        - "traefik.backend.loadbalancer.swarm=true"
+        - "traefik.frontend.redirect.entryPoint=${ENTRYPOINT}"
+        - "traefik.frontend.rule=Host:${DOMAIN}"
+        - "traefik.port=8080"
+
+  db:
+    image: couchdb:2.3.0
+    volumes:
+      - db-data:/opt/couchdb/data
+    networks:
+      - default
+    deploy:
+      resources:
+        limits:
+          cpus: '0.30'
+          memory: 256M
+        reservations:
+          cpus: '0.15'
+          memory: 128M
+
+  influxdb:
+    image: influxdb:1.7
+    volumes:
+      - influx-data:/var/lib/influxdb
+    networks:
+      - default
+    deploy:
+      resources:
+        limits:
+          cpus: '0.30'
+          memory: 256M
+        reservations:
+          cpus: '0.15'
+          memory: 128M
+
+  agent:
+    image: swarmpit/agent:latest
+    environment:
+      - DOCKER_API_VERSION=1.35
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - default
+    deploy:
+      mode: global
+      labels:
+        swarmpit.agent: 'true'
+      resources:
+        limits:
+          cpus: '0.10'
+          memory: 64M
+        reservations:
+          cpus: '0.05'
+          memory: 32M
+
+volumes:
+  db-data:
+  influx-data:
