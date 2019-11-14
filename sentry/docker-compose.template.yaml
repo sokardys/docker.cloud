@@ -72,6 +72,7 @@ services:
         - "traefik.enable=true"
         - "traefik.docker.network=web"
         - "traefik.backend.loadbalancer.swarm=true"
+        - "traefik.frontend.redirect.entryPoint=${SENTRY_ENTRYPOINT}"
         - "traefik.frontend.rule=Host:${SENTRY_DOMAIN}"
         - "traefik.port=9000"
   cron:
