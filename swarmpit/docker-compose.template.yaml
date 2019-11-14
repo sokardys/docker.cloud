@@ -29,6 +29,7 @@ services:
       labels:
         - "traefik.enable=true"
         - "traefik.docker.network=web"
+        - "traefik.frontend.auth.basic=${BASIC_AUTH}"
         - "traefik.backend.loadbalancer.swarm=true"
         - "traefik.frontend.redirect.entryPoint=${ENTRYPOINT}"
         - "traefik.frontend.rule=Host:${DOMAIN}"
@@ -37,7 +38,7 @@ services:
   db:
     image: couchdb:2.3.0
     volumes:
-      - db-data:/opt/couchdb/data
+      - ${COUCHDB_STORE_DIR}:/opt/couchdb/data
     networks:
       - default
     deploy:
@@ -52,7 +53,7 @@ services:
   influxdb:
     image: influxdb:1.7
     volumes:
-      - influx-data:/var/lib/influxdb
+      - ${INFLUX_STORE_DIR}:/var/lib/influxdb
     networks:
       - default
     deploy:
@@ -83,7 +84,3 @@ services:
         reservations:
           cpus: '0.05'
           memory: 32M
-
-volumes:
-  db-data:
-  influx-data:
