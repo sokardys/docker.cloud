@@ -28,7 +28,7 @@ x-defaults: &defaults
     restart_policy:
       condition: on-failure
   volumes:
-    - sentrydata:/var/lib/sentry/files
+    - ${SENTRY_STORE_DIR}:/var/lib/sentry/files
 
 services:
   memcached:
@@ -54,7 +54,7 @@ services:
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_DB=${POSTGRES_DB}
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - ${POSTGRES_STORE_DIR}:/var/lib/postgresql/data
     networks:
       - default
       - monitoring
@@ -104,12 +104,6 @@ services:
       - SCHEDULE=${BACKUP_FREQUENCY}
     deploy:
       mode: global
-
-volumes:
-  pgdata:
-    external: true
-  sentrydata:
-    external: true
 
 networks:
   web:
