@@ -6,7 +6,7 @@ networks:
 
 services:
   app:
-    image: swarmpit/swarmpit:latest
+    image: swarmpit/swarmpit:${SWARMPIT_VERSION}
     environment:
       - SWARMPIT_DB=http://db:5984
       - SWARMPIT_INFLUXDB=http://influxdb:8086
@@ -29,14 +29,13 @@ services:
       labels:
         - "traefik.enable=true"
         - "traefik.docker.network=web"
-        - "traefik.frontend.auth.basic=${BASIC_AUTH}"
         - "traefik.backend.loadbalancer.swarm=true"
         - "traefik.frontend.redirect.entryPoint=${ENTRYPOINT}"
         - "traefik.frontend.rule=Host:${DOMAIN}"
         - "traefik.port=8080"
 
   db:
-    image: couchdb:2.3.0
+    image: couchdb:${COUCHDB_VERSION}
     volumes:
       - ${COUCHDB_STORE_DIR}:/opt/couchdb/data
     networks:
@@ -51,7 +50,7 @@ services:
           memory: 128M
 
   influxdb:
-    image: influxdb:1.7
+    image: influxdb:${INFLUX_VERSION}
     volumes:
       - ${INFLUX_STORE_DIR}:/var/lib/influxdb
     networks:
@@ -66,7 +65,7 @@ services:
           memory: 128M
 
   agent:
-    image: swarmpit/agent:latest
+    image: swarmpit/agent:${AGENT_VERSION}
     environment:
       - DOCKER_API_VERSION=1.35
     volumes:
