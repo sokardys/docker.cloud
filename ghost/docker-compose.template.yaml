@@ -33,8 +33,9 @@ services:
       storage__s3__assetHost: ${AWS_S3_ASSETHOST}
       mail__transport: SES
       mail__from: ${AWS_SES_FROM}
-      mail__options__AWSAccessKeyID: ${AWS_SES_KEY}
-      mail__options__AWSSecretKey: ${AWS_SES_SECRET}
+      mail__options__accessKeyId: ${AWS_SES_KEY}
+      mail__options__secretAccessKey: ${AWS_SES_SECRET}
+      mail__options__region: ${AWS_SES_REGION}
     deploy:
       replicas: 1
       update_config:
