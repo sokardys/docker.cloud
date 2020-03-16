@@ -4,7 +4,7 @@ services:
     restart: always
     image: postgres:9.6
     volumes:
-      - /var/fider/pg_data:/var/lib/postgresql/data
+      - "${ROOT_DIR}/db:/var/lib/postgresql/data"
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASS}
@@ -61,7 +61,7 @@ services:
       
       # Connection string to the PostgreSQL database. 
       # This example uses the Docker service defined above
-      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASS}@db:5432/${POSTGRES_DB}?sslmode=disable
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASS}@postgres:5432/${POSTGRES_DB}?sslmode=disable
       
       # CHANGE THIS! You can generate a strong secret at https://randomkeygen.com/
       JWT_SECRET: ${JWT_SECRET}
