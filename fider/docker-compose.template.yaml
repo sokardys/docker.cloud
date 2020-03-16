@@ -49,7 +49,7 @@ services:
         condition: on-failure
       labels:
         - traefik.enable=true
-        - traefik.port=9999
+        - traefik.port=3000
         - traefik.docker.network=web
         - traefik.frontend.redirect.entryPoint=${DOMAIN_ENTRYPOINT}
         - traefik.frontend.rule=Host:${DOMAIN}
