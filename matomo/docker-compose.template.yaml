@@ -3,6 +3,8 @@ version: "3.2"
 services:
   db:
     image: mariadb:${MARIADB_VERSION}
+    networks:
+      - default
     command:
       - "mysqld"
       - "--log-warnings=2"
@@ -26,6 +28,8 @@ services:
 
   redis:
     image: redis:${REDIS_VERSION}
+    networks:
+      - default
     volumes:
       - "/etc/localtime:/etc/localtime:ro"
     environment:
@@ -36,6 +40,8 @@ services:
 
   geoip-updater:
     image: crazymax/geoip-updater:${GEOIP_UPDATER_VERSION}
+    networks:
+      - default
     volumes:
       - "${ROOT_DIR}/app/geoip:/data"
     env_file:
@@ -46,9 +52,9 @@ services:
 
   matomo:
     image: crazymax/matomo:${MATOMO_VERSION}
-    depends_on:
-      - db
-      - redis
+    networks:
+      - default
+      - web
     volumes:
       - "${ROOT_DIR}/app:/data"
     env_file:
@@ -58,7 +64,8 @@ services:
       replicas: ${MATOMO_REPLICAS}
       labels:
         - "traefik.enable=true"
-        - "traefik.backend=matomo"
+        - "traefik.docker.network=web"
+        - "traefik.backend.loadbalancer.swarm=true"
         - "traefik.backend.loadbalancer.stickiness=true"
         - "traefik.port=8000"
         - "traefik.frontend.rule=Host:${FQDN}"
@@ -76,8 +83,9 @@ services:
       - "--url=https://${FQDN}/"
       - "--concurrent-requests-per-website=${MATOMO_ARCHIVE_REQUESTS}"
     user: nginx
-    depends_on:
-      - matomo
+    networks:
+      - default
+      - web
     volumes:
       - "${ROOT_DIR}/app:/data"
     env_file:
@@ -97,8 +105,8 @@ services:
 
   scheduler:
     image: crazymax/swarm-cronjob:${SWARM_CRONJOB_VERSION}
-    depends_on:
-      - archive
+    networks:
+      - default
     volumes:
       - "/var/run/docker.sock:/var/run/docker.sock:ro"
     environment:
@@ -109,3 +117,6 @@ services:
       placement:
         constraints:
           - node.role == manager
+networks:
+  web:
+    external: true
