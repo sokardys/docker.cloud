@@ -1,4 +1,4 @@
-version: '2'
+version: '3.4'
 services:
   postgres:
     restart: always
@@ -32,7 +32,6 @@ services:
       - SCHEDULE=${BACKUP_FREQUENCY}
     deploy:
       mode: global
-
   app:
     networks:
       - default
@@ -52,7 +51,7 @@ services:
         - traefik.enable=true
         - traefik.port=9999
         - traefik.docker.network=web
-        - traefik.frontend.redirect.entryPoint=https
+        - traefik.frontend.redirect.entryPoint=${DOMAIN_ENTRYPOINT}
         - traefik.frontend.rule=Host:${DOMAIN}
         - traefik.frontend.passHostHeader=true
     environment:
