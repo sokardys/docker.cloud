@@ -15,40 +15,28 @@ services:
       - "--innodb-buffer-pool-instances=${MYSQL_IDB_BUFFER_POOL_INSTANCES}"
     volumes:
       - "${ROOT_DIR}/db:/var/lib/mysql"
-      - "/etc/localtime:/etc/localtime:ro"
     environment:
       - "TZ=${TZ}"
       - "MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}"
       - "MYSQL_DATABASE=${MYSQL_DATABASE}"
       - "MYSQL_USER=${MYSQL_USER}"
       - "MYSQL_PASSWORD=${MYSQL_PASSWORD}"
-    deploy:
-      placement:
-        constraints: [node.role == worker]
 
   redis:
     image: redis:${REDIS_VERSION}
     networks:
       - default
-    volumes:
-      - "/etc/localtime:/etc/localtime:ro"
     environment:
       - "TZ=${TZ}"
-    deploy:
-      placement:
-        constraints: [node.role == worker]
 
-  geoip-updater:
-    image: crazymax/geoip-updater:${GEOIP_UPDATER_VERSION}
-    networks:
-      - default
-    volumes:
-      - "${ROOT_DIR}/app/geoip:/data"
-    env_file:
-      - "${ROOT_DIR}/geoip-updater.env"
-    deploy:
-      placement:
-        constraints: [node.role == worker]
+  # geoip-updater:
+  #   image: crazymax/geoip-updater:${GEOIP_UPDATER_VERSION}
+  #   networks:
+  #     - default
+  #   volumes:
+  #     - "${ROOT_DIR}/app/geoip:/data"
+  #   env_file:
+  #     - "${ROOT_DIR}/geoip-updater.env"
 
   matomo:
     image: crazymax/matomo:${MATOMO_VERSION}
@@ -69,9 +57,6 @@ services:
         - "traefik.backend.loadbalancer.stickiness=true"
         - "traefik.port=8000"
         - "traefik.frontend.rule=Host:${FQDN}"
-        - "traefik.frontend.passHostHeader=true"
-      placement:
-        constraints: [node.role == worker]
 
   archive:
     image: crazymax/matomo:${MATOMO_VERSION}
@@ -82,7 +67,7 @@ services:
       - "--no-interaction"
       - "--url=https://${FQDN}/"
       - "--concurrent-requests-per-website=${MATOMO_ARCHIVE_REQUESTS}"
-    user: nginx
+    # user: nginx
     networks:
       - default
       - web
@@ -97,9 +82,6 @@ services:
         - "swarm.cronjob.enable=true"
         - "swarm.cronjob.schedule=${MATOMO_CRON_ARCHIVE}"
         - "swarm.cronjob.skip-running=true"
-      replicas: 0
-      placement:
-        constraints: [node.role == worker]
       restart_policy:
         condition: none
 
