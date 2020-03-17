@@ -1,10 +1,9 @@
 version: '3.4'
 services:
   postgres:
-    restart: always
     image: postgres:9.6
     volumes:
-      - "${ROOT_DIR}/db:/var/lib/postgresql/data"
+      - "${POSTGRES_DATA}:/var/lib/postgresql/data"
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASS}
@@ -15,6 +14,7 @@ services:
     deploy:
       restart_policy:
         condition: on-failure
+
   backup:
     image: schickling/postgres-backup-s3
     networks:
@@ -32,11 +32,11 @@ services:
       - SCHEDULE=${BACKUP_FREQUENCY}
     deploy:
       mode: global
+
   app:
     networks:
       - default
       - web
-    restart: always
     image: getfider/fider:stable
     deploy:
       replicas: 1
@@ -58,11 +58,11 @@ services:
       # Use production for best performance
       # Use development for verbose logs
       GO_ENV: production
-      
-      # Connection string to the PostgreSQL database. 
+
+      # Connection string to the PostgreSQL database.
       # This example uses the Docker service defined above
       DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASS}@postgres:5432/${POSTGRES_DB}?sslmode=disable
-      
+
       # CHANGE THIS! You can generate a strong secret at https://randomkeygen.com/
       JWT_SECRET: ${JWT_SECRET}
 
@@ -78,7 +78,7 @@ services:
       EMAIL_SMTP_PASSWORD: ${SMTP_PASS}
 
 
-      # Social OAuth: 
+      # Social OAuth:
       # Read more on https://getfider.com/docs/configuring-oauth/
 
       # Facebook
@@ -92,9 +92,6 @@ services:
       # GitHub
       OAUTH_GITHUB_CLIENTID: ${OAUTH_GITHUB_ID}
       OAUTH_GITHUB_SECRET: ${OAUTH_GITHUB_SECRET}
-
-    depends_on:
-      - postgres
 
 networks:
   web:
