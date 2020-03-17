@@ -1,5 +1,5 @@
 ## TODO: add a compose examples directory with various deployment options.
-version: "3"
+version: "3.4"
 networks:
   web:
     external: true
@@ -14,7 +14,7 @@ services:
       - default
       - monitoring
     volumes:
-      - "./data/mongo:/data"
+      - "${ROOT_DIR}:/data"
   ohmyform:
     image: ohmyform/ohmyform
     deploy:
@@ -28,36 +28,29 @@ services:
         condition: on-failure
       labels:
         - traefik.enable=true
-        - traefik.port=5000
+        - traefik.port=${PORT}
         - traefik.docker.network=web
-        - traefik.frontend.redirect.entryPoint=https
+        - traefik.frontend.redirect.entryPoint=${DOMAIN_ENTRYPOINT}
         - traefik.frontend.passHostHeader=true
         - traefik.frontend.rule=Host:${DOMAIN}
         - traefik.backend.loadbalancer.swarm=true
         - traefik.backend.loadbalancer.stickiness=false
-    volumes:
-        - ghost_data:/var/lib/ghost/content/themes
     environment:
       CREATE_ADMIN: "TRUE"
-      SOCKET_URL: 'localhost:5000'
-      SOCKET_PORT: '5000'
       SOCKET_PORT_EXTERN_VISIBLE: "TRUE"
       MONGODB_URI: mongodb://mongo/ohmyform
       REDIS_URL: redis://redis
       NODE_ENV: ${NODE_ENV}  
       SESSION_SECRET: ${SECRET_KEY} 
-      PORT: ${DOMAIN_PORT} 
+      PORT: ${PORT} 
       BASE_URL: localhost 
-      SIGNUP_DISABLED: FALSE 
-      SUBDOMAINS_DISABLED: TRUE 
-      ENABLE_CLUSTER_MODE: FALSE 
+      SIGNUP_DISABLED: "FALSE" 
+      SUBDOMAINS_DISABLED: "TRUE" 
+      ENABLE_CLUSTER_MODE: "FALSE" 
       MAILER_EMAIL_ID: ${MAILER_EMAIL_ID} 
       MAILER_PASSWORD: ${MAILER_PASSWORD} 
-      MAILER_FROM: ${MAILER_FROM} 
-      MAILER_SMTP_HOST: ${MAILER_SMTP_HOST} 
-      MAILER_SMTP_PORT: ${MAILER_SMTP_PORT} 
-      MAILER_SMTP_SECURE: ${MAILER_SMTP_SECURE}  
-      CREATE_ADMIN: FALSE 
+      MAILER_FROM: ${MAILER_FROM}  
+      CREATE_ADMIN: "TRUE" 
       ADMIN_EMAIL: ${ADMIN_EMAIL} 
       ADMIN_USERNAME: ${ADMIN_USERNAME} 
       ADMIN_PASSWORD: ${ADMIN_PASSWORD} 
@@ -67,25 +60,10 @@ services:
       COVERALLS_REPO_TOKEN: ${COVERALLS_REPO_TOKEN}  
       GOOGLE_ANALYTICS_ID: ${GOOGLE_ANALYTICS_ID}  
       RAVEN_DSN: ${RAVEN_DSN} 
-    links:
-      - mongo
-      - redis
-      - mail
     networks:
       - web
       - default
-    depends_on:
-      - mongo
-      - redis
-  mail:
-    image: mailhog/mailhog
-    ports:
-      - "5050:8025"
   mongoexpress:
     image: mongo-express
     environment:
       ME_CONFIG_MONGODB_SERVER: mongo
-    links:
-      - mongo
-    depends_on:
-      - mongo
