@@ -1,22 +1,60 @@
 ## TODO: add a compose examples directory with various deployment options.
 version: "3.4"
-networks:
-  web:
-    external: true
-  monitoring:
-    external: true
+
 services:
   redis:
-    image: redis
+    image: redis:${REDIS_VERSION}
+    networks:
+      - default
+    deploy:
+      mode: global
+      restart_policy:
+        condition: on-failure
+    volumes:
+      - "${REDIS_DATA}:/data"
   mongo:
-    image: mongo
+    image: mongo:${MONGO_VERSION}
     networks:
       - default
       - monitoring
     volumes:
-      - "${ROOT_DIR}:/data"
+      - "${MONGO_DATA}:/data/db"
+    deploy:
+      mode: global
+      restart_policy:
+        condition: on-failure
+
   ohmyform:
-    image: ohmyform/ohmyform
+    image: ohmyform/ohmyform:${OHMYFORM_VERSION}
+    networks:
+      - web
+      - default
+    environment:
+      - NODE_ENV=${NODE_ENV}
+      - SESSION_SECRET=${SESSION_SECRET}
+      - BASE_URL=${DOMAIN}
+      - MONGODB_URI=${MONGODB_URI}
+      - REDIS_URL=${REDIS_URL}
+      - SOCKET_URL=${DOMAIN}
+      - SIGNUP_DISABLED=${SIGNUP_DISABLED}
+      - SUBDOMAINS_DISABLED=${SUBDOMAINS_DISABLED}
+      - ENABLE_CLUSTER_MODE=${ENABLE_CLUSTER_MODE}
+      - MAILER_EMAIL_ID=${MAILER_EMAIL_ID}
+      - MAILER_PASSWORD=${MAILER_PASSWORD}
+      - MAILER_FROM=${MAILER_FROM}
+      - MAILER_SERVICE_PROVIDER=${MAILER_SERVICE_PROVIDER}
+      - MAILER_SMTP_HOST=${MAILER_SMTP_HOST}
+      - MAILER_SMTP_PORT=${MAILER_SMTP_PORT}
+      - MAILER_SMTP_SECURE=${MAILER_SMTP_SECURE}
+      - CREATE_ADMIN=${CREATE_ADMIN}
+      - ADMIN_EMAIL=${ADMIN_EMAIL}
+      - ADMIN_USERNAME=${ADMIN_USERNAME}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
+      - APP_NAME=${APP_NAME}
+      - APP_DESC=${APP_DESC}
+      - APP_KEYWORDS=${APP_KEYWORDS}
+      - RAVEN_DSN=${RAVEN_DSN}
+      - GOOGLE_ANALYTICS_ID=${GOOGLE_ANALYTICS_ID}
     deploy:
       replicas: 1
       update_config:
@@ -28,43 +66,16 @@ services:
         condition: on-failure
       labels:
         - traefik.enable=true
-        - traefik.port=${PORT}
+        - traefik.port=5000
         - traefik.docker.network=web
         - traefik.frontend.redirect.entryPoint=${DOMAIN_ENTRYPOINT}
         - traefik.frontend.passHostHeader=true
         - traefik.frontend.rule=Host:${DOMAIN}
         - traefik.backend.loadbalancer.swarm=true
-        - traefik.backend.loadbalancer.stickiness=false
-    environment:
-      CREATE_ADMIN: "TRUE"
-      SOCKET_PORT_EXTERN_VISIBLE: "TRUE"
-      MONGODB_URI: mongodb://mongo/ohmyform
-      REDIS_URL: redis://redis
-      NODE_ENV: ${NODE_ENV}  
-      SESSION_SECRET: ${SECRET_KEY} 
-      PORT: ${PORT} 
-      BASE_URL: localhost 
-      SIGNUP_DISABLED: "FALSE" 
-      SUBDOMAINS_DISABLED: "TRUE" 
-      ENABLE_CLUSTER_MODE: "FALSE" 
-      MAILER_SERVICE_PROVIDER: ${MAILER_SERVICE_PROVIDER}
-      MAILER_EMAIL_ID: ${MAILER_EMAIL_ID} 
-      MAILER_PASSWORD: ${MAILER_PASSWORD} 
-      MAILER_FROM: ${MAILER_FROM}  
-      CREATE_ADMIN: "TRUE" 
-      ADMIN_EMAIL: ${ADMIN_EMAIL} 
-      ADMIN_USERNAME: ${ADMIN_USERNAME} 
-      ADMIN_PASSWORD: ${ADMIN_PASSWORD} 
-      APP_NAME: ${APP_NAME} 
-      APP_KEYWORDS: ${APP_KEYWORDS} 
-      APP_DESC: ${APP_DESC}  
-      COVERALLS_REPO_TOKEN: ${COVERALLS_REPO_TOKEN}  
-      GOOGLE_ANALYTICS_ID: ${GOOGLE_ANALYTICS_ID}  
-      RAVEN_DSN: ${RAVEN_DSN} 
-    networks:
-      - web
-      - default
-  mongoexpress:
-    image: mongo-express
-    environment:
-      ME_CONFIG_MONGODB_SERVER: mongo
+        - traefik.backend.loadbalancer.stickiness=true
+
+networks:
+  web:
+    external: true
+  monitoring:
+    external: true
