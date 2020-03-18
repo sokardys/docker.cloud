@@ -7,8 +7,23 @@ networks:
     external: true
 
 services:
+  base: &base
+    build:
+      context: .
+      dockerfile: ./docker/Dockerfile
+      args:
+        BUNDLE_WITHOUT: 'development:test'
+        EXECJS_RUNTIME: Disabled
+        RAILS_ENV: 'production'
+        RAILS_SERVE_STATIC_FILES: 'true'
+    image: chatwoot:latest
+    env_file: .env ## Change this file for customized env variables
+
   chatwood:
     image: chatwood/chatwoot:${CHATWOOD_VERSION}
+    networks:
+      - web
+      - default
     environment:
       - ENABLE_ACCOUNT_SIGNUP=${ENABLE_ACCOUNT_SIGNUP}
       - REDIS_URL=${REDIS_URL}
@@ -69,28 +84,78 @@ services:
     command: ['bundle', 'exec', 'rails', 's', '-p', '3000', '-b', '0.0.0.0']
 
   sidekiq:
-    image: chatwood/chatwoot:latest
+    <<: *base
+    image: chatwoot:latest
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - web
+      - default
+    environment:
+      - NODE_ENV=production
+      - RAILS_ENV=production
     command: ['bundle', 'exec', 'sidekiq', '-C', 'config/sidekiq.yml']
 
   postgres:
     image: postgres:11.6
     restart: always
-    networks:
-      - default
-      - monitoring
+    # ports:
+    #   - '5432:5432'
     volumes:
       - postgres:/data/postgres
     environment:
       - POSTGRES_DB=chatwoot
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=
+    networks:
+      - default
+      - monitoring
+    deploy:
+      replicas: 1
+      update_config:
+        parallelism: 1
+        failure_action: rollback
+        delay: 1m
+        order: start-first
+      restart_policy:
+        condition: on-failure
+      labels:
+        - traefik.enable=true
+        - traefik.port=5432
+        - traefik.docker.network=web
+        - traefik.frontend.redirect.entryPoint=${DOMAIN_ENTRYPOINT}
+        - traefik.frontend.passHostHeader=true
+        - traefik.frontend.rule=Host:${DOMAIN}
+        - traefik.backend.loadbalancer.swarm=true
+        - traefik.backend.loadbalancer.stickiness=false
 
   redis:
     image: redis:alpine
     restart: always
     volumes:
       - redis:/data/redis
-
+    # ports:
+    #   - '6379:6379'
+    deploy:
+      replicas: 1
+      update_config:
+        parallelism: 1
+        failure_action: rollback
+        delay: 1m
+        order: start-first
+      restart_policy:
+        condition: on-failure
+      labels:
+        - traefik.enable=true
+        - traefik.port=6379
+        - traefik.docker.network=web
+        - traefik.frontend.redirect.entryPoint=${DOMAIN_ENTRYPOINT}
+        - traefik.frontend.passHostHeader=true
+        - traefik.frontend.rule=Host:${DOMAIN}
+        - traefik.backend.loadbalancer.swarm=true
+        - traefik.backend.loadbalancer.stickiness=false
+        
 volumes:
   postgres:
   redis:
