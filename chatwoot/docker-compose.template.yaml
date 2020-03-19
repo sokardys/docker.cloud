@@ -58,9 +58,9 @@ services:
     volumes:
       - ${POSTGRES_DATA}:/var/lib/postgresql/data/
     environment:
-      - POSTGRES_DB=chatwoot
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=chatwood
+      - POSTGRES_USER=${POSTGRES_USERNAME}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
     deploy:
       mode: global
       restart_policy:
