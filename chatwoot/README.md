@@ -20,3 +20,7 @@ Now you are good to go!
 ## Admin credentials
 email: john@acme.inc
 password: 123456
+
+## Change the default account
+Log in the postgres database and go to the `accounts` table. Replace the first entry as it says `Acme Inc` with your 
+company name. Eg: _Satoshis Games Inc_
