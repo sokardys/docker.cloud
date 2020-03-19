@@ -16,3 +16,7 @@ Then, run the following command to trigger the db seeding process:
 `bundle exec rails db:reset`
 
 Now you are good to go!
+
+## Admin credentials
+email: john@acme.inc
+password: 123456
