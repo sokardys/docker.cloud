@@ -68,6 +68,7 @@ services:
 
   redis:
     image: redis:${REDIS_VERSION}
+    command: ["sh", "-c", "redis-server --requirepass \"${REDIS_PASSWORD}\""]
     networks:
       - default
     volumes:
