@@ -2,7 +2,7 @@ version: '3.4'
 
 services:
   app:
-    image: chatwoot:${CHATWOOT_VERSION}
+    image: chatwoot/chatwoot:${CHATWOOT_VERSION}
     env_file: .env
     networks:
       - default
@@ -32,7 +32,7 @@ services:
         - traefik.backend.loadbalancer.stickiness=false
 
   sidekiq:
-    image: chatwoot:${CHATWOOT_VERSION}
+    image: chatwoot/chatwoot:${CHATWOOT_VERSION}
     env_file: .env
     networks:
       - default
@@ -56,11 +56,11 @@ services:
       - default
       - monitoring
     volumes:
-      - ${POSTGRES_DATA}:/var/lib/postgresql/data
+      - ${POSTGRES_DATA}:/var/lib/postgresql/data/
     environment:
       - POSTGRES_DB=chatwoot
       - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=
+      - POSTGRES_PASSWORD=password
     deploy:
       mode: global
       restart_policy:
@@ -77,6 +77,9 @@ services:
       mode: global
       restart_policy:
         condition: on-failure
+volumes:
+  postgres: 
+  redis: 
 networks:
   web:
     external: true
