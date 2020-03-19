@@ -1,0 +1,83 @@
+version: '3.4'
+
+services:
+  app:
+    image: chatwoot:${CHATWOOT_VERSION}
+    env_file: .env
+    networks:
+      - default
+      - web
+    environment:
+      - NODE_ENV=production
+      - RAILS_ENV=production
+    entrypoint: docker/entrypoints/rails.sh
+    command: ['bundle', 'exec', 'rails', 's', '-p', '3000', '-b', '0.0.0.0']
+    deploy:
+      replicas: 1
+      update_config:
+        parallelism: 1
+        failure_action: rollback
+        delay: 1m
+        order: start-first
+      restart_policy:
+        condition: on-failure
+      labels:
+        - traefik.enable=true
+        - traefik.port=3000
+        - traefik.docker.network=web
+        - traefik.frontend.redirect.entryPoint=${DOMAIN_ENTRYPOINT}
+        - traefik.frontend.passHostHeader=true
+        - traefik.frontend.rule=Host:${DOMAIN}
+        - traefik.backend.loadbalancer.swarm=true
+        - traefik.backend.loadbalancer.stickiness=false
+
+  sidekiq:
+    image: chatwoot:${CHATWOOT_VERSION}
+    env_file: .env
+    networks:
+      - default
+    environment:
+      - NODE_ENV=production
+      - RAILS_ENV=production
+    command: ['bundle', 'exec', 'sidekiq', '-C', 'config/sidekiq.yml']
+    deploy:
+      replicas: 1
+      update_config:
+        parallelism: 1
+        failure_action: rollback
+        delay: 1m
+        order: start-first
+      restart_policy:
+        condition: on-failure
+
+  postgres:
+    image: postgres:${POSTGRES_VERSION}
+    networks:
+      - default
+      - monitoring
+    volumes:
+      - ${POSTGRES_DATA}:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=chatwoot
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=
+    deploy:
+      mode: global
+      restart_policy:
+        condition: on-failure
+
+  redis:
+    image: redis:${REDIS_VERSION}
+    networks:
+      - default
+    volumes:
+      - ${REDIS_DATA}:/data
+    deploy:
+      mode: global
+      restart_policy:
+        condition: on-failure
+networks:
+  web:
+    external: true
+  monitoring:
+    external: true
