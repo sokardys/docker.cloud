@@ -1,0 +1,95 @@
+version: '3.4'
+
+# docker network create --scope swarm --driver overlay web
+networks:
+  web:
+    external: true
+  monitoring:
+    external: true
+
+services:
+  mariadb:
+    image: mariadb:${MARIADB_VERSION}
+    networks:
+      - default
+      - monitoring
+    deploy:
+      mode: global
+      restart_policy:
+        condition: on-failure
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_PASSWORD}
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+      - MYSQL_USER=root
+    volumes:
+      - ${DATA_PATH}/mariadb:/var/lib/mysql
+
+  redis:
+    image: redis:${REDIS_VERSION}
+    networks:
+      - default
+    volumes:
+      - ${DATA_PATH}/redis:/data
+    deploy:
+      mode: global
+      restart_policy:
+        condition: on-failure
+
+  nextcloud:
+    image: nextcloud:${NEXTCLOUD_VERSION}
+    networks:
+      - web
+      - default
+    deploy:
+      replicas: 1
+      update_config:
+        parallelism: 1
+        failure_action: rollback
+        delay: 1m
+        order: start-first
+      restart_policy:
+        condition: on-failure
+      labels:
+        - traefik.enable=true
+        - traefik.port=80
+        - traefik.docker.network=web
+        - traefik.frontend.redirect.entryPoint=${DOMAIN_ENTRYPOINT}
+        - traefik.frontend.rule=Host:${DOMAIN}
+        - traefik.backend.loadbalancer.swarm=true
+    environment:
+      - MYSQL_HOST=mariadb
+      - MYSQL_USER=root
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+      - REDIS_HOST=redis
+
+      - SMTP_HOST=${SMTP_HOST}
+      - SMTP_SECURE=${SMTP_SECURE}
+      - SMTP_PORT=${SMTP_PORT}
+      - SMTP_AUTHTYPE=${SMTP_AUTHTYPE}
+      - SMTP_NAME=${SMTP_NAME}
+      - SMTP_PASSWORD=${SMTP_PASSWORD}
+      - MAIL_FROM_ADDRESS=${MAIL_FROM_ADDRESS}
+      - MAIL_DOMAIN=${MAIL_DOMAIN}
+
+    volumes:
+      - ${DATA_PATH}/nextcloud:/var/www/html
+
+  backup:
+    image: schickling/mysql-backup-s3
+    networks:
+      - default
+    environment:
+      MYSQL_HOST: mariadb
+      MYSQL_USER: root
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      S3_ACCESS_KEY_ID: ${AWS_S3_KEY}
+      S3_SECRET_ACCESS_KEY: ${AWS_S3_SECRET}
+      S3_BUCKET: ${AWS_S3_BUCKET_BACKUP}
+      S3_PREFIX: ${AWS_S3_PREFIX}
+      S3_REGION: ${AWS_S3_REGION}
+      SCHEDULE: ${BACKUP_FREQUENCY}
+    deploy:
+      mode: global
+    volumes:
+      - ${DATA_PATH}/backup:/tmp

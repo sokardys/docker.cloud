@@ -1,0 +1,104 @@
+version: "3.2"
+
+services:
+  db:
+    image: mariadb:${MARIADB_VERSION}
+    networks:
+      - default
+    command:
+      - "mysqld"
+      - "--log-warnings=2"
+      - "--max-connections=${MYSQL_MAX_CONNECTIONS}"
+      - "--max_allowed_packet=${MYSQL_MAX_ALLOWED_PACKET}"
+      - "--wait-timeout=${MYSQL_WAIT_TIMEOUT}"
+      - "--innodb-buffer-pool-size=${MYSQL_IDB_BUFFER_POOL_SIZE}"
+      - "--innodb-buffer-pool-instances=${MYSQL_IDB_BUFFER_POOL_INSTANCES}"
+    volumes:
+      - "${ROOT_DIR}/db:/var/lib/mysql"
+    environment:
+      - "TZ=${TZ}"
+      - "MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}"
+      - "MYSQL_DATABASE=${MYSQL_DATABASE}"
+      - "MYSQL_USER=${MYSQL_USER}"
+      - "MYSQL_PASSWORD=${MYSQL_PASSWORD}"
+
+  redis:
+    image: redis:${REDIS_VERSION}
+    networks:
+      - default
+    environment:
+      - "TZ=${TZ}"
+
+  # geoip-updater:
+  #   image: crazymax/geoip-updater:${GEOIP_UPDATER_VERSION}
+  #   networks:
+  #     - default
+  #   volumes:
+  #     - "${ROOT_DIR}/app/geoip:/data"
+  #   env_file:
+  #     - "${ROOT_DIR}/geoip-updater.env"
+
+  matomo:
+    image: crazymax/matomo:${MATOMO_VERSION}
+    networks:
+      - default
+      - web
+    volumes:
+      - "${ROOT_DIR}/app:/data"
+    env_file:
+      - "${ROOT_DIR}/matomo.env"
+    deploy:
+      mode: replicated
+      replicas: ${MATOMO_REPLICAS}
+      labels:
+        - "traefik.enable=true"
+        - "traefik.docker.network=web"
+        - "traefik.backend.loadbalancer.swarm=true"
+        - "traefik.backend.loadbalancer.stickiness=true"
+        - "traefik.port=8000"
+        - "traefik.frontend.rule=Host:${FQDN}"
+
+  archive:
+    image: crazymax/matomo:${MATOMO_VERSION}
+    command:
+      - "php"
+      - "/var/www/console"
+      - "core:archive"
+      - "--no-interaction"
+      - "--url=https://${FQDN}/"
+      - "--concurrent-requests-per-website=${MATOMO_ARCHIVE_REQUESTS}"
+    # user: nginx
+    networks:
+      - default
+      - web
+    volumes:
+      - "${ROOT_DIR}/app:/data"
+    env_file:
+      - "${ROOT_DIR}/matomo.env"
+    healthcheck:
+      disable: true
+    deploy:
+      labels:
+        - "swarm.cronjob.enable=true"
+        - "swarm.cronjob.schedule=${MATOMO_CRON_ARCHIVE}"
+        - "swarm.cronjob.skip-running=true"
+      restart_policy:
+        condition: none
+
+  scheduler:
+    image: crazymax/swarm-cronjob:${SWARM_CRONJOB_VERSION}
+    networks:
+      - default
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+    environment:
+      - "TZ=${TZ}"
+      - "LOG_LEVEL=info"
+      - "LOG_NOCOLOR=true"
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
+networks:
+  web:
+    external: true
