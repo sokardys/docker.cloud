@@ -5,7 +5,6 @@ services:
     image: registry:${REGISTRY_VERSION}
     networks:
       - web
-      - default
     environment:
       - REGISTRY_STORAGE_DELETE_ENABLED=true
       - REGISTRY_HTTP_SECRET=${REGISTRY_HTTP_SECRET}
@@ -34,7 +33,7 @@ services:
         - traefik.docker.network=web
         - traefik.frontend.redirect.entryPoint=${DOMAIN_ENTRYPOINT}
         - traefik.frontend.passHostHeader=true
-        - traefik.frontend.rule=Host:${DOMAIN};Path:/v2
+        - traefik.frontend.rule=Host:${DOMAIN};PathPrefix:/v2
         - traefik.backend.loadbalancer.swarm=true
         - traefik.backend.loadbalancer.stickiness=true
     volumes:
@@ -43,12 +42,9 @@ services:
   ui:
     image: jc21/registry-ui:${REGISTRY_UI_VERSION}
     networks:
-      web:
-      default:
-        aliases:
-          - ${DOMAIN}    
+      - web
     environment:
-      - REGISTRY_HOST=${DOMAIN}:5000
+      - REGISTRY_HOST=${DOMAIN}
       - REGISTRY_SSL=true
       - REGISTRY_DOMAIN=${DOMAIN}
       # Tienes que crear este usuario para que ui se pueda conectar al registry con auth
@@ -71,7 +67,7 @@ services:
         - traefik.docker.network=web
         - traefik.frontend.redirect.entryPoint=${DOMAIN_ENTRYPOINT}
         - traefik.frontend.passHostHeader=true
-        - traefik.frontend.rule=Host:${DOMAIN};Path:/
+        - traefik.frontend.rule=Host:${DOMAIN};PathPrefix:/
         - traefik.backend.loadbalancer.swarm=true
         - traefik.backend.loadbalancer.stickiness=true
 
