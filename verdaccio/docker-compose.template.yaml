@@ -1,0 +1,29 @@
+version: '3.4'
+
+services:
+  registry:
+    image: verdaccio/verdaccio:${VERDACCIO_VERSION}
+    networks:
+      - web
+    deploy:
+      placement:
+        constraints: [node.role == manager]
+      restart_policy:
+        condition: on-failure
+      labels:
+        - traefik.enable=true
+        - traefik.port=4873
+        - traefik.docker.network=web
+        - traefik.frontend.redirect.entryPoint=${DOMAIN_ENTRYPOINT}
+        - traefik.frontend.passHostHeader=true
+        - traefik.frontend.rule=Host:${DOMAIN}
+        - traefik.backend.loadbalancer.swarm=true
+        - traefik.backend.loadbalancer.stickiness=true
+    volumes:
+      - ./config.yaml:/verdaccio/conf/config.yaml
+      - ./htpasswd:/verdaccio/conf/htpasswd
+      - ${VERDACCIO_DATA}:/verdaccio/storage
+
+networks:
+  web:
+    external: true

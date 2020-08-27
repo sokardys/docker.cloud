@@ -1,0 +1,72 @@
+version: '3.4'
+
+services:
+  registry:
+    image: registry:${REGISTRY_VERSION}
+    networks:
+      - web
+    environment:
+      - REGISTRY_STORAGE_DELETE_ENABLED=true
+      - REGISTRY_HTTP_SECRET=${REGISTRY_HTTP_SECRET}
+      - REGISTRY_HTTP_HOST=${DOMAIN}
+      - REGISTRY_HTTP_ADDR=:5000
+      - REGISTRY_AUTH_HTPASSWD_PATH=/auth/htpasswd
+      - REGISTRY_AUTH_HTPASSWD_REALM=Registry Realm
+      - REGISTRY_STORAGE=s3
+      - REGISTRY_STORAGE_S3_ACCESSKEY=${AWS_S3_ACCESSKEY}
+      - REGISTRY_STORAGE_S3_SECRETKEY=${AWS_S3_SECRETKEY}
+      - REGISTRY_STORAGE_S3_BUCKET=${AWS_S3_BUCKET}
+      - REGISTRY_STORAGE_S3_REGION=${AWS_S3_REGION}
+      - REGISTRY_HEALTH_STORAGEDRIVER_ENABLED=false
+    deploy:
+      placement:
+        constraints: [node.role == manager]
+      restart_policy:
+        condition: on-failure
+      labels:
+        - traefik.enable=true
+        - traefik.port=5000
+        - traefik.docker.network=web
+        - traefik.frontend.redirect.entryPoint=${DOMAIN_ENTRYPOINT}
+        - traefik.frontend.passHostHeader=true
+        - traefik.frontend.rule=Host:${DOMAIN};PathPrefix:/v2
+        - traefik.backend.loadbalancer.swarm=true
+        - traefik.backend.loadbalancer.stickiness=true
+    volumes:
+      - ${REGISTRY_DATA}:/auth
+
+  ui:
+    image: jc21/registry-ui:${REGISTRY_UI_VERSION}
+    networks:
+      - web
+    environment:
+      - REGISTRY_HOST=${DOMAIN}
+      - REGISTRY_SSL=true
+      - REGISTRY_DOMAIN=${DOMAIN}
+      # Tienes que crear este usuario para que ui se pueda conectar al registry con auth
+      # You gotta create this user for the ui to connect to the registry using auth
+      - REGISTRY_USER=${REALM_USER}
+      - REGISTRY_PASS=${REALM_PASSWD}
+      - REGISTRY_STORAGE_DELETE_ENABLED=true
+    deploy:
+      replicas: 1
+      update_config:
+        parallelism: 1
+        failure_action: rollback
+        delay: 1m
+        order: start-first
+      restart_policy:
+        condition: on-failure
+      labels:
+        - traefik.enable=true
+        - traefik.port=80
+        - traefik.docker.network=web
+        - traefik.frontend.redirect.entryPoint=${DOMAIN_ENTRYPOINT}
+        - traefik.frontend.passHostHeader=true
+        - traefik.frontend.rule=Host:${DOMAIN};PathPrefix:/
+        - traefik.backend.loadbalancer.swarm=true
+        - traefik.backend.loadbalancer.stickiness=true
+
+networks:
+  web:
+    external: true
