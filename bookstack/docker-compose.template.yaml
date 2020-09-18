@@ -36,16 +36,12 @@ services:
 
   bookstack:
     image: solidnerd/bookstack:${TAG}
-    volumes:
-      - buploads:/var/www/bookstack/public/uploads
-      - bsuploads:/var/www/bookstack/storage/uploads
     environment:
       - DB_HOST=mysql:3306
       - DB_DATABASE=${DB_DATABASE}
       - DB_USERNAME=root
       - DB_PASSWORD=${DB_PASSWORD}
       - APP_URL=${APP_URL}
-      - STORAGE_TYPE=local_secure
       - AUTH_METHOD=standard
       - APP_AUTO_LANG_PUBLIC=true
       - APP_VIEWS_BOOKS=grid
@@ -55,6 +51,19 @@ services:
       - SESSION_COOKIE_NAME=book_session
       - SESSION_SECURE_COOKIE=false
       - CACHE_PREFIX=bookstack
+      - STORAGE_TYPE=s3
+      - STORAGE_S3_KEY=${AWS_S3_KEY}
+      - STORAGE_S3_SECRET=${AWS_S3_SECRET}
+      - STORAGE_S3_BUCKET=${S3_STORAGE_BUCKET}
+      - STORAGE_S3_REGION=${AWS_S3_REGION}
+      - MAIL_DRIVER=${MAIL_DRIVER}
+      - MAIL_HOST=${MAIL_HOST}
+      - MAIL_PORT=${MAIL_PORT}
+      - MAIL_ENCRYPTION=${MAIL_ENCRYPTION}
+      - MAIL_USERNAME=${MAIL_USERNAME}
+      - MAIL_PASSWORD=${MAIL_PASSWORD}
+      - MAIL_FROM=${MAIL_FROM}
+      - MAIL_FROM_NAME=${MAIL_FROM_NAME}
     networks:
       - default
       - web
@@ -76,10 +85,6 @@ services:
         - traefik.backend.loadbalancer.swarm=true
         - traefik.backend.loadbalancer.stickiness=false
 volumes:
-  buploads:
-    driver: "local"
-  bsuploads:
-    driver: "local"
   database:
     driver: "local"
   tmp_backups:
