@@ -12,25 +12,23 @@ services:
     environment:
       - MYSQL_ALLOW_EMPTY_PASSWORD=false
       - MYSQL_DATABASE=${DB_DATABASE}
-      - MYSQL_ROOT_PASSWORD=${DB_PASSWORD}
-      - MYSQL_USER=${DB_USER}
-      - MYSQL_PASSWORD= ${DB_PASSWORD}
+      - MYSQL_ROOT_PASSWORD=${DB_PASSWORD}  
   
   backup:
     image: schickling/mysql-backup-s3
     networks:
       - default
     environment:
-      MYSQL_HOST: ${DB_HOST}
-      MYSQL_USER: ${DB_USER}
-      MYSQLDUMP_DATABASE: ${DB_DATABASE}
-      MYSQL_PASSWORD: ${DB_PASSWORD}
-      S3_ACCESS_KEY_ID: ${AWS_S3_KEY}
-      S3_SECRET_ACCESS_KEY: ${AWS_S3_SECRET}
-      S3_BUCKET: ${AWS_S3_BUCKET_BACKUP}
-      S3_PREFIX: ${AWS_S3_PREFIX}
-      S3_REGION: ${AWS_S3_REGION}
-      SCHEDULE: ${BACKUP_FREQUENCY}
+      - MYSQL_HOST=mysql
+      - MYSQL_USER=root
+      - MYSQLDUMP_DATABASE=${DB_DATABASE}
+      - MYSQL_PASSWORD=${DB_PASSWORD}
+      - S3_ACCESS_KEY_ID=${AWS_S3_KEY}
+      - S3_SECRET_ACCESS_KEY=${AWS_S3_SECRET}
+      - S3_BUCKET=${AWS_S3_BUCKET_BACKUP}
+      - S3_PREFIX=${AWS_S3_PREFIX}
+      - S3_REGION=${AWS_S3_REGION}
+      - SCHEDULE=${BACKUP_FREQUENCY}
     deploy:
       mode: global
     volumes:
@@ -42,9 +40,9 @@ services:
       - buploads:/var/www/bookstack/public/uploads
       - bsuploads:/var/www/bookstack/storage/uploads
     environment:
-      - DB_HOST=${DB_HOST}:3306
+      - DB_HOST=mysql:3306
       - DB_DATABASE=${DB_DATABASE}
-      - DB_USERNAME=${DB_USER}
+      - DB_USERNAME=root
       - DB_PASSWORD=${DB_PASSWORD}
       - APP_URL=${APP_URL}
       - STORAGE_TYPE=local_secure
@@ -70,7 +68,7 @@ services:
       labels:
         - traefik.enable=true
         - traefik.port=8080
-        - traefik.entrypoints=https, http
+        #- traefik.entrypoints=https, http
         - traefik.docker.network=web
         - traefik.frontend.redirect.entryPoint=${DOMAIN_ENTRYPOINT}
         - traefik.frontend.passHostHeader=true
