@@ -1,0 +1,71 @@
+version: "3.7"
+ 
+services:
+  mysql:
+    image: mariadb:10
+    command: --default-authentication-plugin=mysql_native_password
+    volumes:
+      - "${DIR}:/var/lib/mysql"
+    networks:
+      - default
+      - monitoring
+    environment:
+      - MYSQL_ALLOW_EMPTY_PASSWORD=false
+      - MYSQL_DATABASE=${DB_DATABASE}
+      - MYSQL_ROOT_PASSWORD=${DB_PASSWORD}
+      - MYSQL_USER=${DB_USERNAME}
+      - MYSQL_PASSWORD=${DB_PASSWORD}
+  
+  backup:
+    image: schickling/mysql-backup-s3
+    networks:
+      - default
+    environment:
+      MYSQL_HOST: ${DB_HOST}
+      MYSQL_USER: ${DB_USERNAME}
+      MYSQLDUMP_DATABASE: ${DB_DATABASE}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+      S3_ACCESS_KEY_ID: ${AWS_S3_KEY}
+      S3_SECRET_ACCESS_KEY: ${AWS_S3_SECRET}
+      S3_BUCKET: ${AWS_S3_BUCKET}
+      S3_PREFIX: ${AWS_S3_PREFIX}
+      S3_REGION: ${AWS_S3_REGION}
+      SCHEDULE: ${BACKUP_FREQUENCY}
+    deploy:
+      mode: global
+    volumes:
+      - tmp_backups:/tmp
+
+  polr:
+    image: ajanvier/polr
+    env_file: .env
+    networks:
+      - default
+      - web
+    deploy:
+      replicas: 1
+      update_config:
+        parallelism: 2
+        delay: 10s
+      restart_policy:
+        condition: on-failure
+      labels:
+        - traefik.enable=true
+        - traefik.port=80
+        - traefik.entrypoints=https, http
+        - traefik.docker.network=web
+        - traefik.frontend.redirect.entryPoint=${DOMAIN_ENTRYPOINT}
+        - traefik.frontend.passHostHeader=true
+        - traefik.frontend.rule=Host:${APP_ADDRESS}
+        - traefik.backend.loadbalancer.swarm=true
+        - traefik.backend.loadbalancer.stickiness=false
+
+volumes:
+  tmp_backups:
+    driver: "local"
+
+networks:
+  web:
+    external: true
+  monitoring:
+    external: true
