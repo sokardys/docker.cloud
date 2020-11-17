@@ -1,4 +1,4 @@
-version: '3.4'
+version: '3.6'
 
 # docker network create --scope swarm --driver overlay web
 networks:
@@ -9,14 +9,17 @@ networks:
 
 services:
   mautic:
-    image: sokardys/mautic:${MAUTIC_VERSION}
+    image: mautic/mautic:${MAUTIC_VERSION}
     networks:
       - web
       - default
     environment:
       MAUTIC_DB_PASSWORD: ${MYSQL_PASSWORD}
       MAUTIC_DB_HOST: mysql:3306
-      MAUTIC_TRUSTED_PROXIES: 0.0.0.0/0
+      MAUTIC_DB_USER: root
+      MAUTIC_DB_NAME: mautic3
+      MYSQL_PORT_3306_TCP: 3306
+      MAUTIC_RUN_CRON_JOBS: 'true'
     deploy:
       replicas: 1
       update_config:
@@ -45,9 +48,8 @@ services:
       SERVER_HOSTNAME: ${SMTP_SERVER_HOSTNAME}
     networks:
       - default
-
   mysql:
-    image: mysql:5.7
+    image: powertic/percona-docker
     deploy:
       mode: global
       restart_policy:
@@ -59,6 +61,7 @@ services:
       - monitoring
     volumes:
       - mysqldata:/var/lib/mysql
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_general_ci --sql-mode=""
 
   backup:
     image: schickling/mysql-backup-s3
