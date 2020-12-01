@@ -1,4 +1,4 @@
-version: '3.4'
+version: '3.6'
 
 services:
   http-challenge:
@@ -15,7 +15,7 @@ services:
         - traefik.enable=true
         - traefik.port=3000
         - traefik.docker.network=web
-        - traefik.frontend.rule=HostRegexp:{domain:(.*)};PathPrefixStrip:/.well-known
+        - traefik.frontend.rule=HostRegexp:{domain:(.*)};PathPrefixStrip:/.well-known/acme-challenge
         - traefik.backend.loadbalancer.swarm=true
         - traefik.backend.loadbalancer.stickiness=false
 
