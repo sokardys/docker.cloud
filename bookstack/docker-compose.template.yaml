@@ -1,0 +1,96 @@
+version: "3.7"
+ 
+services:
+  mysql:
+    image: mariadb:10
+    command: --default-authentication-plugin=mysql_native_password
+    volumes:
+      - "${DIR}:/var/lib/mysql"
+    networks:
+      - default
+      - monitoring
+    environment:
+      - MYSQL_ALLOW_EMPTY_PASSWORD=false
+      - MYSQL_DATABASE=${DB_DATABASE}
+      - MYSQL_ROOT_PASSWORD=${DB_PASSWORD}  
+  
+  backup:
+    image: schickling/mysql-backup-s3
+    networks:
+      - default
+    environment:
+      - MYSQL_HOST=mysql
+      - MYSQL_USER=root
+      - MYSQLDUMP_DATABASE=${DB_DATABASE}
+      - MYSQL_PASSWORD=${DB_PASSWORD}
+      - S3_ACCESS_KEY_ID=${AWS_S3_KEY}
+      - S3_SECRET_ACCESS_KEY=${AWS_S3_SECRET}
+      - S3_BUCKET=${AWS_S3_BUCKET_BACKUP}
+      - S3_PREFIX=${AWS_S3_PREFIX}
+      - S3_REGION=${AWS_S3_REGION}
+      - SCHEDULE=${BACKUP_FREQUENCY}
+    deploy:
+      mode: global
+    volumes:
+      - tmp_backups:/tmp
+
+  bookstack:
+    image: solidnerd/bookstack:${TAG}
+    environment:
+      - DB_HOST=mysql:3306
+      - DB_DATABASE=${DB_DATABASE}
+      - DB_USERNAME=root
+      - DB_PASSWORD=${DB_PASSWORD}
+      - APP_URL=${APP_URL}
+      - AUTH_METHOD=standard
+      - APP_AUTO_LANG_PUBLIC=true
+      - APP_VIEWS_BOOKS=grid
+      - CACHE_DRIVER=file
+      - SESSION_DRIVER=file
+      - SESSION_LIFETIME=120
+      - SESSION_COOKIE_NAME=book_session
+      - SESSION_SECURE_COOKIE=false
+      - CACHE_PREFIX=bookstack
+      - STORAGE_TYPE=s3
+      - STORAGE_S3_KEY=${AWS_S3_KEY}
+      - STORAGE_S3_SECRET=${AWS_S3_SECRET}
+      - STORAGE_S3_BUCKET=${S3_STORAGE_BUCKET}
+      - STORAGE_S3_REGION=${AWS_S3_REGION}
+      - MAIL_DRIVER=${MAIL_DRIVER}
+      - MAIL_HOST=${MAIL_HOST}
+      - MAIL_PORT=${MAIL_PORT}
+      - MAIL_ENCRYPTION=${MAIL_ENCRYPTION}
+      - MAIL_USERNAME=${MAIL_USERNAME}
+      - MAIL_PASSWORD=${MAIL_PASSWORD}
+      - MAIL_FROM=${MAIL_FROM}
+      - MAIL_FROM_NAME=${MAIL_FROM_NAME}
+    networks:
+      - default
+      - web
+    deploy:
+      replicas: 1
+      update_config:
+        parallelism: 2
+        delay: 10s
+      restart_policy:
+        condition: on-failure
+      labels:
+        - traefik.enable=true
+        - traefik.port=8080
+        #- traefik.entrypoints=https, http
+        - traefik.docker.network=web
+        - traefik.frontend.redirect.entryPoint=${DOMAIN_ENTRYPOINT}
+        - traefik.frontend.passHostHeader=true
+        - traefik.frontend.rule=Host:${DOMAIN}
+        - traefik.backend.loadbalancer.swarm=true
+        - traefik.backend.loadbalancer.stickiness=false
+volumes:
+  database:
+    driver: "local"
+  tmp_backups:
+    driver: "local"
+networks:
+  web:
+    external: true
+  monitoring:
+    external: true
