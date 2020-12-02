@@ -37,7 +37,7 @@ services:
         - traefik.frontend.rule=Host:${DOMAIN}
         - traefik.frontend.passHostHeader=true
     volumes:
-      - mauticdata:/var/www/html
+      - ${MAUTIC_DATA_STORE}:/var/www/html
 
   postfix:
     image: juanluisbaptiste/postfix:latest
@@ -48,6 +48,7 @@ services:
       SERVER_HOSTNAME: ${SMTP_SERVER_HOSTNAME}
     networks:
       - default
+
   mysql:
     image: powertic/percona-docker
     deploy:
@@ -60,7 +61,7 @@ services:
       - default
       - monitoring
     volumes:
-      - mysqldata:/var/lib/mysql
+      - ${MYSQL_DATA_STORE}:/var/lib/mysql
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_general_ci --sql-mode=""
 
   backup:
@@ -79,10 +80,3 @@ services:
       SCHEDULE: ${BACKUP_FREQUENCY}
     deploy:
       mode: global
-    volumes:
-      - backupdata:/tmp
-
-volumes:
-  backupdata:
-  mauticdata:
-  mysqldata:
