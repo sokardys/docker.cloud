@@ -5,7 +5,7 @@ services:
     image: mariadb:10
     command: --default-authentication-plugin=mysql_native_password
     volumes:
-      - "${DIR}:/var/lib/mysql"
+      - ${MYSQL_DATA_STORE}:/var/lib/mysql
     networks:
       - default
       - monitoring
@@ -23,25 +23,24 @@ services:
       - MYSQL_USER=root
       - MYSQLDUMP_DATABASE=${DB_DATABASE}
       - MYSQL_PASSWORD=${DB_PASSWORD}
-      - S3_ACCESS_KEY_ID=${AWS_S3_KEY}
-      - S3_SECRET_ACCESS_KEY=${AWS_S3_SECRET}
-      - S3_BUCKET=${AWS_S3_BUCKET_BACKUP}
-      - S3_PREFIX=${AWS_S3_PREFIX}
-      - S3_REGION=${AWS_S3_REGION}
+      - S3_ACCESS_KEY_ID=${AWS_S3_BACKUP_KEY}
+      - S3_SECRET_ACCESS_KEY=${AWS_S3_BACKUP_SECRET}
+      - S3_BUCKET=${AWS_S3_BACKUP_BUCKET}
+      - S3_PREFIX=${AWS_S3_BACKUP_PREFIX}
+      - S3_REGION=${AWS_S3_BACKUP_REGION}
       - SCHEDULE=${BACKUP_FREQUENCY}
     deploy:
       mode: global
-    volumes:
-      - tmp_backups:/tmp
 
   bookstack:
-    image: solidnerd/bookstack:${TAG}
+    image: solidnerd/bookstack:${VERSION_TAG}
     environment:
-      - DB_HOST=mysql:3306
+      - DB_HOST=mysql
       - DB_DATABASE=${DB_DATABASE}
       - DB_USERNAME=root
       - DB_PASSWORD=${DB_PASSWORD}
       - APP_URL=${APP_URL}
+      - APP_KEY=${APP_KEY}
       - AUTH_METHOD=standard
       - APP_AUTO_LANG_PUBLIC=true
       - APP_VIEWS_BOOKS=grid
@@ -49,14 +48,14 @@ services:
       - SESSION_DRIVER=file
       - SESSION_LIFETIME=120
       - SESSION_COOKIE_NAME=book_session
-      - SESSION_SECURE_COOKIE=false
+      - SESSION_SECURE_COOKIE=true
       - CACHE_PREFIX=bookstack
       - STORAGE_TYPE=s3
-      - STORAGE_S3_KEY=${AWS_S3_KEY}
-      - STORAGE_S3_SECRET=${AWS_S3_SECRET}
-      - STORAGE_S3_BUCKET=${S3_STORAGE_BUCKET}
-      - STORAGE_S3_REGION=${AWS_S3_REGION}
-      - MAIL_DRIVER=${MAIL_DRIVER}
+      - STORAGE_S3_KEY=${AWS_S3_STORAGE_KEY}
+      - STORAGE_S3_SECRET=${AWS_S3_STORAGE_SECRET}
+      - STORAGE_S3_BUCKET=${AWS_S3_STORAGE_BUCKET}
+      - STORAGE_S3_REGION=${AWS_S3_STORAGE_REGION}
+      - MAIL_DRIVER=smtp
       - MAIL_HOST=${MAIL_HOST}
       - MAIL_PORT=${MAIL_PORT}
       - MAIL_ENCRYPTION=${MAIL_ENCRYPTION}
@@ -77,18 +76,13 @@ services:
       labels:
         - traefik.enable=true
         - traefik.port=8080
-        #- traefik.entrypoints=https, http
         - traefik.docker.network=web
-        - traefik.frontend.redirect.entryPoint=${DOMAIN_ENTRYPOINT}
+        - traefik.frontend.redirect.entryPoint=${ENTRYPOINT}
         - traefik.frontend.passHostHeader=true
         - traefik.frontend.rule=Host:${DOMAIN}
         - traefik.backend.loadbalancer.swarm=true
         - traefik.backend.loadbalancer.stickiness=false
-volumes:
-  database:
-    driver: "local"
-  tmp_backups:
-    driver: "local"
+
 networks:
   web:
     external: true
