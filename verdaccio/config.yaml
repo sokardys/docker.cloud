@@ -13,10 +13,23 @@ uplinks:
     url: https://registry.npmjs.org/
 
 packages:
+  '@satoshis-games/*':
+    access: $authenticated
+    publish: $authenticated
+
+  '@turinlabs/*':
+    access: $authenticated
+    publish: $authenticated
+
+  '@sokardys/*':
+    access: $authenticated
+    publish: $authenticated
+
   '@*/*':
     access: $all
     publish: $authenticated
     proxy: npmjs
+
   '**':
     # allow all known users to read packages
     #
@@ -32,9 +45,10 @@ packages:
 logs:
   - {type: stdout, format: pretty, level: http}
 
-url_prefix: http://packages.local
+url_prefix: https://packages.turinlabs.com
 listen:
   - 0.0.0.0:4873
 max_body_size: 60mb
 web:
   enable: true
+  gravatar: true
