@@ -1,0 +1,44 @@
+version: "3.4"
+
+services:
+  # Old mongo db which contains the data to be migrated.
+  mongo:
+    restart: always
+    image: "bitnami/mongodb:4.1"
+    expose:
+    - "27017"
+    environment:
+      MONGODB_ROOT_PASSWORD: "${MONGO_PASSWORD}"
+    volumes:
+    - /etc/rasa/mongo:/bitnami/mongodb/data/db
+
+  # New SQL based database which will be the migration target.
+  db:
+    restart: always
+    image: "bitnami/postgresql:11.2.0"
+    expose:
+    - "5432"
+    environment:
+      POSTGRESQL_USERNAME: "${DB_USER:-admin}"
+      POSTGRESQL_PASSWORD: "${DB_PASSWORD}"
+      POSTGRESQL_DATABASE: "${DB_DATABASE:-rasa}"
+      POSTGRESQL_SYNCHRONOUS_COMMIT_MODE: "off"
+    volumes:
+    - ./db:/bitnami/postgresql
+
+  # Service which moves the data from the old mongo database to the SQL db.
+  migrator:
+    image: "gcr.io/rasa-platform/rasa-x-ee:${RASA_X_VERSION:-0.19.0}"
+    environment:
+      DB_USER: "${DB_USER:-admin}"
+      DB_PASSWORD: "${DB_PASSWORD}"
+      DB_DATABASE: "${DB_DATABASE:-rasa}"
+      DB_HOST: "${DB_HOST:-db}"
+      MONGO_HOST: "${MONGO_HOST:-mongodb://mongo:27017}"
+      MONGO_USERNAME: "root"
+      MONGO_PASSWORD: "${MONGO_PASSWORD}"
+      MONGO_DB: "${MONGO_DB:-nlu-backend}"
+    command: ["python", "./scripts/mongo_migration/migrate_mongo_to_sql.py"]
+    depends_on:
+      - db
+      - mongo

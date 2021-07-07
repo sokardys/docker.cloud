@@ -1,0 +1,189 @@
+version: "3.4"
+
+networks:
+  web:
+    external: true
+
+x-database-credentials: &database-credentials
+  DB_HOST: "db"
+  DB_PORT: "5432"
+  DB_USER: "${DB_USER:-admin}"
+  DB_PASSWORD: "${DB_PASSWORD}"
+  DB_LOGIN_DB: "${DB_LOGIN_DB:-rasa}"
+
+x-rabbitmq-credentials: &rabbitmq-credentials
+  RABBITMQ_HOST: "rabbit"
+  RABBITMQ_USERNAME: "user"
+  RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
+
+x-duckling-credentials: &duckling-credentials
+  RASA_DUCKLING_HTTP_URL: "http://duckling:8000"
+
+x-rasax-credentials: &rasax-credentials
+  LOCAL_MODE: "false"
+  RASA_X_HOST: "http://rasa-x:5002"
+  RASA_X_TOKEN: ${RASA_X_TOKEN}
+  JWT_SECRET: ${JWT_SECRET}
+  RASA_USER_APP: "http://app:5055"
+  RASA_PRODUCTION_HOST: "http://rasa-production:5005"
+  RASA_WORKER_HOST: "http://rasa-worker:5005"
+  RASA_TOKEN: ${RASA_TOKEN}
+  RASA_WORKER_TOKEN: ${RASA_TOKEN}
+
+x-rasa-credentials: &rasa-credentials
+  <<: *rabbitmq-credentials
+  <<: *rasax-credentials
+  <<: *database-credentials
+  <<: *duckling-credentials
+  RASA_TOKEN: ${RASA_TOKEN}
+  RASA_MODEL_PULL_INTERVAL: 10
+
+x-rasa-services: &default-rasa-service
+  deploy:
+      restart_policy:
+        condition: on-failure
+  image: "rasa/rasa:${RASA_VERSION}-full"
+  volumes:
+  - ./credentials.yml:/app/credentials.yml
+  - ./endpoints.yml:/app/endpoints.yml
+  command: >
+    x
+    --no-prompt
+    --production
+    --port 5005
+    --jwt-method HS256
+    --jwt-secret ${JWT_SECRET}
+    --auth-token '${RASA_TOKEN}'
+    --cors "*"
+
+services:
+  rasa-x:
+    networks:
+      - default
+    deploy:
+      restart_policy:
+        condition: on-failure
+    image: "rasa/rasa-x:${RASA_X_VERSION}"
+    volumes:
+      - ./models:/app/models
+      - ./environments.yml:/app/environments.yml
+      - ./logs:/logs
+      - ./auth:/app/auth
+    environment:
+      <<: *database-credentials
+      <<: *rasa-credentials
+      SELF_PORT: "5002"
+      DB_DATABASE: "${DB_DATABASE:-rasa}"
+      RASA_MODEL_DIR: "/app/models"
+      RABBITMQ_QUEUE: "rasa_production_events"
+      PASSWORD_SALT: ${PASSWORD_SALT}
+      RASA_X_USER_ANALYTICS: "0"
+      SANIC_RESPONSE_TIMEOUT: "3600"
+      METRICS_CONSENT: ${METRICS_CONSENT}
+      UUID: ${UUID}
+
+  rasa-production:
+    networks:
+      - default
+    <<: *default-rasa-service
+    environment:
+      <<: *rasa-credentials
+      DB_DATABASE: "tracker"
+      RABBITMQ_QUEUE: "rasa_production_events"
+      RASA_MODEL_SERVER: "http://rasa-x:5002/api/projects/default/models/tags/production"
+
+  rasa-worker:
+    networks:
+      - default
+    <<: *default-rasa-service
+    environment:
+      <<: *rasa-credentials
+      DB_DATABASE: "worker_tracker"
+      RABBITMQ_QUEUE: "rasa_worker_events"
+      RASA_MODEL_SERVER: "http://rasa-x:5002/api/projects/default/models/tags/production"
+
+  app:
+    networks:
+      - default
+    deploy:
+      restart_policy:
+        condition: on-failure
+    image: "rasa/rasa-x-demo:${RASA_X_DEMO_VERSION}"
+
+  db:
+    networks:
+      - default
+    deploy:
+      restart_policy:
+        condition: on-failure
+    image: "bitnami/postgresql:11.2.0"
+    environment:
+      POSTGRESQL_USERNAME: "${DB_USER:-admin}"
+      POSTGRESQL_PASSWORD: "${DB_PASSWORD}"
+      POSTGRESQL_DATABASE: "${DB_DATABASE:-rasa}"
+    volumes:
+      - ./db:/bitnami/postgresql
+
+  rabbit:
+    networks:
+      - default
+    deploy:
+      restart_policy:
+        condition: on-failure
+    image: "bitnami/rabbitmq:3.7.17"
+    environment:
+      RABBITMQ_HOST: "rabbit"
+      RABBITMQ_USERNAME: "user"
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
+      RABBITMQ_DISK_FREE_LIMIT: "{mem_relative, 0.1}"
+
+  duckling:
+    networks:
+      - default
+    deploy:
+      restart_policy:
+        condition: on-failure
+    image: "rasa/duckling:latest"
+    command: ["duckling-example-exe", "--no-access-log", "--no-error-log"]
+
+  nginx:
+    image: "rasa/nginx:${RASA_X_VERSION}"
+    networks:
+      - web
+      - default
+    volumes:
+      - ./certs:/opt/bitnami/certs
+      - ./terms:/opt/bitnami/nginx/conf/bitnami/terms
+    deploy:
+      replicas: 1
+      update_config:
+        parallelism: 1
+        failure_action: rollback
+        delay: 1m
+        order: start-first
+      restart_policy:
+        condition: on-failure
+      labels:
+        - traefik.enable=true
+        - traefik.port=8080
+        - traefik.entrypoints=https
+        - traefik.docker.network=web
+        - traefik.frontend.passHostHeader=true
+        - traefik.frontend.rule=Host:${RASA_DOMAIN}
+        - traefik.backend.loadbalancer.swarm=true
+        - traefik.backend.loadbalancer.stickiness=false
+
+  logger:
+    networks:
+      - default
+    deploy:
+      restart_policy:
+        condition: on-failure
+    image: "rasa/logger:${RASA_X_VERSION}"
+    command: ["/bin/sh", "-c", "docker-compose logs --no-color -f > /logs/compose_`date '+%Y-%m-%d_%H:%M:%S'`.log"]
+    volumes:
+      - ./logs:/logs
+      - ./.env/:/etc/rasa/.env
+      - ./docker-compose.yaml:/etc/rasa/docker-compose.yml
+      - /var/run/docker.sock:/var/run/docker.sock
+    working_dir: /etc/rasa
