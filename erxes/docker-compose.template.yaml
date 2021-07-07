@@ -1,0 +1,96 @@
+version: '3.4'
+
+# docker network create --scope swarm --driver overlay web
+networks:
+  web:
+    external: true
+  monitoring:
+    external: true
+
+services:
+  ghost:
+    build:
+      context: .
+      args:
+        - tag=${GHOST_VERSION}
+    image: ${IMAGE_NAME}:${GHOST_VERSION}
+    networks:
+      - web
+      - default
+    environment:
+      url: ${BLOG_URL}
+      # see https://docs.ghost.org/docs/config#section-running-ghost-with-config-env-variables
+      database__client: mysql
+      database__connection__host: mysql
+      database__connection__user: root
+      database__connection__password: ${MYSQL_PASSWORD}
+      database__connection__database: ghost
+      storage__active: s3
+      storage__s3__accessKeyId: ${AWS_S3_KEY}
+      storage__s3__secretAccessKey: ${AWS_S3_SECRET}
+      storage__s3__region: ${AWS_S3_REGION}
+      storage__s3__bucket: ${AWS_S3_BUCKET}
+      storage__s3__assetHost: ${AWS_S3_ASSETHOST}
+      mail__transport: SES
+      mail__from: ${AWS_SES_FROM}
+      mail__options__accessKeyId: ${AWS_SES_KEY}
+      mail__options__secretAccessKey: ${AWS_SES_SECRET}
+      mail__options__region: ${AWS_SES_REGION}
+    deploy:
+      replicas: 1
+      update_config:
+        parallelism: 1
+        failure_action: rollback
+        delay: 1m
+        order: start-first
+      restart_policy:
+        condition: on-failure
+      labels:
+        - traefik.enable=true
+        - traefik.port=2368
+        - traefik.docker.network=web
+        - traefik.frontend.redirect.entryPoint=${DOMAIN_ENTRYPOINT}
+        - traefik.frontend.passHostHeader=true
+        - traefik.frontend.rule=Host:${DOMAIN}
+        - traefik.backend.loadbalancer.swarm=true
+        - traefik.backend.loadbalancer.stickiness=false
+    volumes:
+        - ghost_data:/var/lib/ghost/content/themes
+
+  mysql:
+    image: mysql:5.7
+    deploy:
+      mode: global
+      restart_policy:
+        condition: on-failure
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_PASSWORD}
+    networks:
+      - default
+      - monitoring
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+  backup:
+    image: schickling/mysql-backup-s3
+    networks:
+      - default
+    environment:
+      MYSQL_HOST: mysql
+      MYSQL_USER: root
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      S3_ACCESS_KEY_ID: ${AWS_S3_KEY}
+      S3_SECRET_ACCESS_KEY: ${AWS_S3_SECRET}
+      S3_BUCKET: ${AWS_S3_BUCKET_BACKUP}
+      S3_PREFIX: ${AWS_S3_PREFIX}
+      S3_REGION: ${AWS_S3_REGION}
+      SCHEDULE: ${BACKUP_FREQUENCY}
+    deploy:
+      mode: global
+    volumes:
+      - backup_data:/tmp
+
+volumes:
+  backup_data:
+  mysql_data:
+  ghost_data:
